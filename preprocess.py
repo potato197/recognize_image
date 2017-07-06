@@ -59,6 +59,7 @@ class PreProcess(object):
     def FindBppContours(self,Bpp,filename):
 #        contours, hierarchy = cv2.findContours(Bpp[1],cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE) 
 #        cv2.imwrite(outpath+filename,Bpp[1])
+####1. scan
         col_count = np.zeros(Bpp.shape[1])
         for c in range(0,Bpp.shape[1]):
             c_count=0
@@ -68,6 +69,39 @@ class PreProcess(object):
             col_count[c]=c_count
 #        cv2.imwrite(outpath+filename,Bpp)
         print col_count
+####2. find blocks
+        blocks=[]
+        left=-1
+        right=-1
+        for i in range(0,Bpp.shape[1]):
+            if(i<=right):
+                continue
+            if(col_count[i])>0:
+                left=i
+                right=left
+                for j in range(i+1,Bpp.shape[1]):
+                    if(col_count[j]>0):
+                        right=j
+                    else:
+                        break
+                blocks.append([left,right])
+        print "blocks="
+        print blocks
+####3. find max 2 blocks
+        max_block_info=[[-1,0],[-1,0]]
+        for i in range(0,len(blocks)):
+            curr_size=blocks[i][1]-blocks[i][0]
+            if(curr_size>max_block_info[0][1]):
+                max_block_info[1][0]=max_block_info[0][0]
+                max_block_info[1][1]=max_block_info[0][1]
+                max_block_info[0][0]=i
+                max_block_info[0][1]=curr_size
+            elif(curr_size>max_block_info[1][1]):
+                max_block_info[1][0]=i
+                max_block_info[1][1]=curr_size
+        print "max_blocks="
+        print max_block_info
+
         return Bpp
 
     def InterferLine(self,Bpp,filename):
