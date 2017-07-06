@@ -87,10 +87,32 @@ class PreProcess(object):
                 blocks.append([left,right])
         print "blocks="
         print blocks
-####3. find max 2 blocks
+####3. merge blocks
+        merged_blocks=[]
+        merged_block=[-1,-1]
+        next_index=-1
+        checked_index=-1
+        for i in range(0,len(blocks)-1):
+            if (i<checked_index):
+                continue
+            curr_block=blocks[i]
+            merged_block[0]=curr_block[0]
+            merged_block[1]=curr_block[1]
+            for j in range(i+1,len(blocks)-1):
+                checked_index=j
+                next_block=blocks[j]
+                gap=next_block[0]-merged_block[1]
+                if(gap<=8):
+                    merged_block[1]=next_block[1]
+                else:
+                    break
+            merged_blocks.append([merged_block[0],merged_block[1]])
+        print "merged_blocks="
+        print merged_blocks
+####4. find max 2 blocks
         max_block_info=[[-1,0],[-1,0]]
-        for i in range(0,len(blocks)):
-            curr_size=blocks[i][1]-blocks[i][0]
+        for i in range(0,len(merged_blocks)):
+            curr_size=merged_blocks[i][1]-merged_blocks[i][0]
             if(curr_size>max_block_info[0][1]):
                 max_block_info[1][0]=max_block_info[0][0]
                 max_block_info[1][1]=max_block_info[0][1]
@@ -101,6 +123,15 @@ class PreProcess(object):
                 max_block_info[1][1]=curr_size
         print "max_blocks="
         print max_block_info
+####5. mark
+        for i in range(0,len(max_block_info)):
+            block_index=max_block_info[i][0]
+            start=merged_blocks[block_index][0]
+            end=merged_blocks[block_index][1]
+            for r in range(0,Bpp.shape[0]):
+                Bpp[r,start]=0
+                Bpp[r,end]=0
+        cv2.imwrite(outpath2+filename,Bpp)
 
         return Bpp
 
