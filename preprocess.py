@@ -98,7 +98,7 @@ class PreProcess(object):
             curr_block=blocks[i]
             merged_block[0]=curr_block[0]
             merged_block[1]=curr_block[1]
-            for j in range(i+1,len(blocks)-1):
+            for j in range(i+1,len(blocks)):
                 checked_index=j
                 next_block=blocks[j]
                 gap=next_block[0]-merged_block[1]
@@ -124,71 +124,29 @@ class PreProcess(object):
         print "max_blocks="
         print max_block_info
 ####5. mark
-        for i in range(0,len(max_block_info)):
-            block_index=max_block_info[i][0]
+        block_index0=max_block_info[0][0]
+        block_index1=max_block_info[1][0]
+        max_1_size=max_block_info[0][1]
+        max_2_size=max_block_info[1][1]
+        if(max_1_size<max_2_size*2):
+            for i in range(0,len(max_block_info)):
+                block_index=max_block_info[i][0]
+                start=merged_blocks[block_index][0]
+                end=merged_blocks[block_index][1]
+                for r in range(0,Bpp.shape[0]):
+                    Bpp[r,start]=0
+                    Bpp[r,end]=0
+        else:
+            block_index=max_block_info[0][0]
             start=merged_blocks[block_index][0]
             end=merged_blocks[block_index][1]
+            middle=(start+end)/2
             for r in range(0,Bpp.shape[0]):
                 Bpp[r,start]=0
                 Bpp[r,end]=0
+                Bpp[r,middle]=0
         cv2.imwrite(outpath2+filename,Bpp)
 
-        return Bpp
-
-    def InterferLine(self,Bpp,filename):
-        #print(type(Bpp.shape[0]), Bpp.shape[0])
-        #print(type(Bpp.shape[1]), Bpp.shape[1])
-        for i in range(0,76):
-            for j in range(0,Bpp.shape[0]):
-                Bpp[j][i]=255
-        for i in range(161,Bpp.shape[1]):
-            for j in range(0,Bpp.shape[0]):
-                Bpp[j][i]=255        
-        m=1
-        n=1
-        for i in range(76,161):
-            while(m<Bpp.shape[0]-1):
-                if Bpp[m][i]==0:
-                    if Bpp[m+1][i]==0:
-                        n=m+1
-                    elif m>0 and Bpp[m-1][i]==0:
-                        n=m
-                        m=n-1
-                    else:
-                        n=m+1
-                    break
-                elif m!=Bpp.shape[0]:
-                    l=0
-                    k=0
-                    ll=m
-                    kk=m
-                    while(ll>0):
-                        if Bpp[ll][i]==0:
-                            ll=11-1
-                            l=l+1
-                        else:
-                            break
-                    while(kk>0):
-                        if Bpp[kk][i]==0:
-                            kk=kk-1
-                            k=k+1
-                        else:
-                            break
-                    if (l<=k and l!=0) or (k==0 and l!=0):
-                        m=m-1
-                    else:
-                        m=m+1
-                else:
-                    break
-                #endif
-            #endwhile
-            if m>0 and Bpp[m-1][i]==0 and Bpp[n-1][i]==0:
-                continue
-            else:
-                Bpp[m][i]=255
-                Bpp[n][i]=255
-            #endif
-        #endfor
         return Bpp
 
     def CutImage(self,Bpp,filename):
