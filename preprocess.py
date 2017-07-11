@@ -76,20 +76,22 @@ class PreProcess(object):
         for i in range(0,Bpp.shape[1]):
             if(i<=right):
                 continue
-            if(col_count[i])>0:
+            block_size=col_count[i]
+            if(block_size>0):
                 left=i
-                right=left
+                right=i
                 for j in range(i+1,Bpp.shape[1]):
                     if(col_count[j]>0):
                         right=j
+                        block_size=block_size+col_count[j]
                     else:
                         break
-                blocks.append([left,right])
+                blocks.append([left,right,block_size])
         print "blocks="
         print blocks
 ####3. merge blocks
         merged_blocks=[]
-        merged_block=[-1,-1]
+        merged_block=[-1,-1,-1]
         next_index=-1
         checked_index=-1
         for i in range(0,len(blocks)-1):
@@ -98,29 +100,34 @@ class PreProcess(object):
             curr_block=blocks[i]
             merged_block[0]=curr_block[0]
             merged_block[1]=curr_block[1]
+            merged_block[2]=curr_block[2]
             for j in range(i+1,len(blocks)):
                 checked_index=j
                 next_block=blocks[j]
                 gap=next_block[0]-merged_block[1]
-                if(gap<=8):
+                if(gap<=10):
                     merged_block[1]=next_block[1]
+                    merged_block[2]=merged_block[2]+next_block[2]
                 else:
                     break
-            merged_blocks.append([merged_block[0],merged_block[1]])
+            merged_blocks.append([merged_block[0],merged_block[1],merged_block[2]])
         print "merged_blocks="
         print merged_blocks
-####4. find max 2 blocks
-        max_block_info=[[-1,0],[-1,0]]
+####4. find max 2 blocks[start,width,size]
+        max_block_info=[[-1,-1,-1],[-1,-1,-1]]
         for i in range(0,len(merged_blocks)):
-            curr_size=merged_blocks[i][1]-merged_blocks[i][0]
-            if(curr_size>max_block_info[0][1]):
+            curr_width=merged_blocks[i][1]-merged_blocks[i][0]
+            if(curr_width>max_block_info[0][1]):
                 max_block_info[1][0]=max_block_info[0][0]
                 max_block_info[1][1]=max_block_info[0][1]
+                max_block_info[1][2]=max_block_info[0][2]
                 max_block_info[0][0]=i
-                max_block_info[0][1]=curr_size
-            elif(curr_size>max_block_info[1][1]):
+                max_block_info[0][1]=curr_width
+                max_block_info[0][2]=merged_blocks[i][2]
+            elif(curr_width>max_block_info[1][1]):
                 max_block_info[1][0]=i
-                max_block_info[1][1]=curr_size
+                max_block_info[1][1]=curr_width
+                max_block_info[1][2]=merged_blocks[i][2]
         print "max_blocks="
         print max_block_info
 ####5. mark
@@ -141,10 +148,29 @@ class PreProcess(object):
             start=merged_blocks[block_index][0]
             end=merged_blocks[block_index][1]
             middle=(start+end)/2
+            m1=max(middle-14,start)
+            m2=min(middle+14,end)
+            min_c_size=merged_blocks[block_index][2]
+            min_c=-1
+#            print "c_size="
+            for c in range(m1,m2):
+                c_size=0
+                for r in range(0,Bpp.shape[0]):
+                    if(Bpp[r,c]==0):
+                        c_size=c_size+1
+                    if(Bpp[r,c+1]==0):
+                        c_size=c_size+1
+                    if(Bpp[r,c+2]==0):
+                        c_size=c_size+1
+#                print c_size
+                if(c_size<min_c_size):
+                    min_c_size=c_size
+                    min_c=c
+#            print middle,min_c
             for r in range(0,Bpp.shape[0]):
                 Bpp[r,start]=0
                 Bpp[r,end]=0
-                Bpp[r,middle]=0
+                Bpp[r,min_c]=0
         cv2.imwrite(outpath2+filename,Bpp)
 
         return Bpp
