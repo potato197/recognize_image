@@ -55,8 +55,87 @@ class PreProcess(object):
 #            col_count[c]=c_count
         cv2.imwrite(outpath+filename,Bpp)
         return Bpp
-    
-    def FindBppContours(self,Bpp,filename):
+
+    def FindBppBoundaryRow(self,Bpp,col_start,col_end):
+####1. scan
+        row_count = np.zeros(Bpp.shape[0])
+        for r in range(0,Bpp.shape[0]):
+            r_count=0
+            for c in range(col_start,col_end):
+                if(Bpp[r,c]==0):
+                    r_count=r_count+1
+            row_count[r]=r_count
+        print row_count
+####2. find blocks
+        blocks=[]
+        up=-1
+        down=-1
+        r_sum=0
+        r_no_empty_count=0
+        r_avarage=0
+        for i in range(0,Bpp.shape[0]):
+            if(i<=down):
+                continue
+            block_size=row_count[i]
+            if(block_size>0):
+                up=i
+                down=i
+                for j in range(i+1,Bpp.shape[0]):
+                    if(row_count[j]>0):
+                        down=j
+                        block_size=block_size+row_count[j]
+                    else:
+                        break
+                r_sum=r_sum+block_size
+                r_no_empty_count=r_no_empty_count+(down-up+1)
+                blocks.append([up,down,block_size])
+        r_avarage=r_sum/r_no_empty_count
+        print "row_blocks="
+        print blocks
+        print "r_avarage="
+        print r_avarage
+####3. merge blocks
+        merged_blocks=[]
+        merged_block=[-1,-1,-1]
+        next_index=-1
+        checked_index=-1
+        for i in range(0,len(blocks)):
+            if (i<checked_index):
+                continue
+            curr_block=blocks[i]
+            if(curr_block[2]<(r_avarage-1)*(curr_block[1]-curr_block[0]+1)):
+                continue
+            merged_block[0]=curr_block[0]
+            merged_block[1]=curr_block[1]
+            merged_block[2]=curr_block[2]
+            for j in range(i+1,len(blocks)):
+                checked_index=j
+                next_block=blocks[j]
+                if(next_block[2]<(r_avarage-1)*(next_block[1]-next_block[0]+1)):
+                    break
+                gap=next_block[0]-merged_block[1]
+                if(gap<=3):
+                    merged_block[1]=next_block[1]
+                    merged_block[2]=merged_block[2]+next_block[2]
+                else:
+                    break
+            merged_blocks.append([merged_block[0],merged_block[1],merged_block[2]])
+        print "merged_row_blocks="
+        print merged_blocks
+####4. find max row blocks[start,height,size]
+        max_block_info=[[-1,-1,-1]]
+        for i in range(0,len(merged_blocks)):
+            curr_height=merged_blocks[i][1]-merged_blocks[i][0]
+            if(curr_height>max_block_info[0][1]):
+                max_block_info[0][0]=i
+                max_block_info[0][1]=curr_height
+                max_block_info[0][2]=merged_blocks[i][2]
+        print "max_row_blocks="
+        print max_block_info
+        i=max_block_info[0][0]
+        return (merged_blocks[i][0],merged_blocks[i][1])
+
+    def FindBppBoundary(self,Bpp,filename):
 #        contours, hierarchy = cv2.findContours(Bpp[1],cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE) 
 #        cv2.imwrite(outpath+filename,Bpp[1])
 ####1. scan
@@ -73,6 +152,9 @@ class PreProcess(object):
         blocks=[]
         left=-1
         right=-1
+        c_sum=0
+        c_no_empty_count=0
+        c_avarage=0
         for i in range(0,Bpp.shape[1]):
             if(i<=right):
                 continue
@@ -87,14 +169,18 @@ class PreProcess(object):
                     else:
                         break
                 blocks.append([left,right,block_size])
+                c_sum=c_sum+block_size
+                c_no_empty_count=c_no_empty_count+(right-left+1)
+        c_avarage=c_sum/c_no_empty_count
         print "blocks="
         print blocks
+        print "c_avarage=",c_avarage
 ####3. merge blocks
         merged_blocks=[]
         merged_block=[-1,-1,-1]
         next_index=-1
         checked_index=-1
-        for i in range(0,len(blocks)-1):
+        for i in range(0,len(blocks)):
             if (i<checked_index):
                 continue
             curr_block=blocks[i]
@@ -105,6 +191,7 @@ class PreProcess(object):
                 checked_index=j
                 next_block=blocks[j]
                 gap=next_block[0]-merged_block[1]
+#                if(gap<=10 and ((curr_block[2]+next_block[2])>(c_avarage-1)*(next_block[1]-curr_block[0]+1))):
                 if(gap<=10):
                     merged_block[1]=next_block[1]
                     merged_block[2]=merged_block[2]+next_block[2]
@@ -140,9 +227,14 @@ class PreProcess(object):
                 block_index=max_block_info[i][0]
                 start=merged_blocks[block_index][0]
                 end=merged_blocks[block_index][1]
-                for r in range(0,Bpp.shape[0]):
-                    Bpp[r,start]=0
-                    Bpp[r,end]=0
+#                for r in range(0,Bpp.shape[0]):
+#                    Bpp[r,start]=0
+#                    Bpp[r,end]=0
+                (row_start,row_end)=self.FindBppBoundaryRow(Bpp,start+1,end)
+                self.CutImage(Bpp,filename,row_start,row_end,start,end)
+#                for c in range(start,end):
+#                    Bpp[row_start,c]=0
+#                    Bpp[row_end,c]=0                
         else:
             block_index=max_block_info[0][0]
             start=merged_blocks[block_index][0]
@@ -167,39 +259,32 @@ class PreProcess(object):
                     min_c_size=c_size
                     min_c=c
 #            print middle,min_c
-            for r in range(0,Bpp.shape[0]):
-                Bpp[r,start]=0
-                Bpp[r,end]=0
-                Bpp[r,min_c]=0
-        cv2.imwrite(outpath2+filename,Bpp)
-
+#            for r in range(0,Bpp.shape[0]):
+#                Bpp[r,start]=0
+#                Bpp[r,end]=0
+#                Bpp[r,min_c]=0
+            (row_start,row_end)=self.FindBppBoundaryRow(Bpp,start+1,min_c)
+#            for c in range(start,min_c):
+#                Bpp[row_start,c]=0
+#                Bpp[row_end,c]=0  
+            self.CutImage(Bpp,filename,row_start,row_end,start,min_c)
+            (row_start,row_end)=self.FindBppBoundaryRow(Bpp,min_c+1,end)
+#            for c in range(min_c,end):
+#                Bpp[row_start,c]=0
+#                Bpp[row_end,c]=0    
+            self.CutImage(Bpp,filename,row_start,row_end,min_c,end)
+#        cv2.imwrite(outpath2+filename,Bpp)
         return Bpp
 
-    def CutImage(self,Bpp,filename):
-        b1=np.zeros((Bpp.shape[0],20))
-        for i in range(78,98):
-            for j in range(0,Bpp.shape[0]):
-                b1[j][i-78]=Bpp[j][i]
-        cv2.imwrite(outpath+filename.decode('gbk')[0].encode('gbk')+'_'+'%d' %(time.time()*1000)+str(random.randint(1000,9999))+'.png',b1)
-
-        b2=np.zeros((Bpp.shape[0],19))
-        for i in range(99,118):
-            for j in range(0,Bpp.shape[0]):
-                b2[j][i-99]=Bpp[j][i]
-        cv2.imwrite(outpath+filename.decode('gbk')[1].encode('gbk')+'_'+'%d' %(time.time()*1000)+str(random.randint(1000,9999))+'.png',b2)
-
-        b3=np.zeros((Bpp.shape[0],19))
-        for i in range(119,138):
-            for j in range(0,Bpp.shape[0]):
-                b3[j][i-119]=Bpp[j][i]
-        cv2.imwrite(outpath+filename.decode('gbk')[2].encode('gbk')+'_'+'%d' %(time.time()*1000)+str(random.randint(1000,9999))+'.png',b3)
-
-        b4=np.zeros((Bpp.shape[0],19))
-        for i in range(139,158):
-            for j in range(0,Bpp.shape[0]):
-                b4[j][i-139]=Bpp[j][i]
-        cv2.imwrite(outpath+filename.decode('gbk')[3].encode('gbk')+'_'+'%d' %(time.time()*1000)+str(random.randint(1000,9999))+'.png',b4)
-        #return (b1,b2,b3,b4)
+    def CutImage(self,Bpp,filename,x_start,x_end,y_start,y_end):
+        w=x_end-x_start+1
+        h=y_end-y_start+1
+        b1=np.zeros((w,h))
+        for i in range(0,w):
+            for j in range(0,h):
+                b1[i][j]=Bpp[x_start+i][y_start+j]
+        res = cv2.resize(b1,(32, 32), interpolation = cv2.INTER_LINEAR)
+        cv2.imwrite(outpath2+filename.decode('gbk')[0].encode('gbk')+'_'+'%d' %(time.time()*1000)+str(random.randint(1000,9999))+'.png',res)
 
 PP=PreProcess()
 inpath='E:/program/recognize_image/images'
@@ -215,7 +300,7 @@ for root,dirs,files in os.walk(inpath):
         GrayImage=PP.ConvertToGray(NoRedImg,filename)
         #print GrayImage.shape
         Bpp=PP.ConvertTo1Bpp(GrayImage,filename)
-        Bpp2=PP.FindBppContours(Bpp,filename)
+        Bpp2=PP.FindBppBoundary(Bpp,filename)
         #print(Bpp[1].shape[0],Bpp[1].shape[1])
         #Bpp_new=PP.InterferLine(Bpp[1],filename)
         #cv2.imwrite(outpath2+filename,Bpp_new)
