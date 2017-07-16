@@ -31,7 +31,7 @@ Load Plugin GetFullmeImage
 
 <!--  Get our standard constants -->
 
-<include name="constants.lua"/>
+<include name="E:\games\mud\MUSHclient\worlds\plugins\constants.lua"/>
 
 <!--  Triggers  -->
 
@@ -42,9 +42,15 @@ Load Plugin GetFullmeImage
 <!--  Aliases  -->
 
 <aliases>
-
-</aliases>
-
+  <alias
+   script="test_download_image_from_web"
+   match="testdi"
+   enabled="y"
+   group="group"
+   sequence="100"
+  >
+  <send>asdfasd</send>
+  </alias>
 </aliases>
 
 <!--  Timers  -->
@@ -55,6 +61,171 @@ Load Plugin GetFullmeImage
 
   </timer>
 </timers>
+
+<!--  Script  -->
+
+<script>
+<![CDATA[
+
+require 'lfs'
+
+function get_html_entire_text(from_web_url)
+	
+	local html_entire_text
+	
+	assert (package.loadlib ("luacom.dll","luacom_open")) ()
+
+	oXMLHTTP = assert (luacom.CreateObject ("MSXML2.XMLHTTP.3.0"), "cannot open MSXML2.XMLHTTP.3.0")
+
+	--oXMLHTTP:Open("GET", from_web_url, false)
+	oXMLHTTP:Open("POST", from_web_url, false)
+	
+	oXMLHTTP:setRequestHeader("User-Agent", "Mozilla/4.0")
+	oXMLHTTP:Send()
+
+	if oXMLHTTP.readyState == 4 and oXMLHTTP.Status == 200 then
+		html_entire_text = oXMLHTTP.responseText
+	end -- if
+
+	oXMLHTTP = nil
+	
+	return html_entire_text
+	
+end -- get_html_entire_text()
+
+-- -- -- -- -- -- -- -- -- --
+
+function get_jpg_url(from_html_text)
+
+	if from_html_text == nil or from_html_text == "" then
+		return nil
+	end -- if
+	
+	local html_text, jpg_url
+	
+	local html_length = string.len(from_html_text)
+
+	if html_length >= 277 then
+		
+		jpg_url = string.match(from_html_text, "/b2evo_captcha_tmp.-jpg")
+		jpg_url = "http://pkuxkx.net/antirobot" .. jpg_url
+		
+	else
+		jpg_url = nil
+		close_window()
+		Note("\n本插件靠“fullme”触发。“fullme验证码图片”仅在之后的1分钟内输入有效。")
+		Note("本插件不能正确获得Web页面文件。\n")	
+	end -- if
+	
+	--print(jpg_url)
+
+	return jpg_url
+end -- get_jpg_url()
+
+-- -- -- -- -- -- -- -- -- --
+
+function download_jpg(from_jpg_url)
+
+	local oXMLHTTP
+	local jpg_buffer
+	
+	assert (package.loadlib ("E:\\program\\recognize_image\\luacom.dll","luacom_open")) ()
+
+	oXMLHTTP = assert (luacom.CreateObject ("MSXML2.XMLHTTP.3.0"), "cannot open MSXML2.XMLHTTP.3.0")
+
+	oXMLHTTP:Open("GET", from_jpg_url, false)
+	oXMLHTTP:setRequestHeader("User-Agent", "Mozilla/4.0")
+	oXMLHTTP:Send()
+
+	if oXMLHTTP.readyState == 4 and oXMLHTTP.Status == 200 then
+	
+		jpg_buffer = oXMLHTTP.responseBody
+ 		
+	end -- if
+
+	oXMLHTTP = nil
+	
+	return jpg_buffer
+end -- download_jpg()
+
+function down_fullme_code_from_web(web_url)
+
+	GLOBAL_URL = web_url
+
+	local jpg, png = nil
+
+	local html_entire_text = get_html_entire_text(web_url) -- get the html text as a string from the url.
+
+	local jpg_url = get_jpg_url(html_entire_text) -- get the .jpg file's url from the html text.
+	
+	if html_entire_text ~= nil and jpg_url ~= nil then
+	
+		jpg = download_jpg(jpg_url) -- download the .jpg file from the jpg's url, and save it as a variable in memeory.
+		
+		if jpg ~= nil then
+            local jpg_name = string.match(jpg_url, "[%w%-_]+%.jpg")
+            local fullFileName = "E:\\program\\recognize_image\\"..jpg_name
+            local file = io.open(fullFileName,"wb")
+            file:write(jpg)
+            file:close()
+		else
+			Note("无法获得 fullme 图片。")
+		end --if
+	
+	else
+		
+		Note("本次查询无法获得页面/文件。")
+		
+	end -- if html_entire_text ~= nil and jpg_url ~= nil
+	
+	jpg, png = nil
+
+end -- down_fullme_code_from_web(web_url)
+
+function test_download_image_from_web()
+
+	local jpg = nil
+
+	local jpg_url = "http://img1qn.moko.cc/2017-07-11/638693bb-fcee-4fe6-b551-8b5fcb78817a.jpg" -- get the .jpg file's url from the html text.
+
+		jpg = download_jpg(jpg_url) -- download the .jpg file from the jpg's url, and save it as a variable in memeory.
+		
+		if jpg ~= nil then
+            local jpg_name = string.match(jpg_url, "[%w%-_]+%.jpg")
+            math.randomseed(100)  
+            local subdir_name=tostring(math.random(10000))
+            local fullFileName = "E:\\program\\recognize_image\\"..subdir_name
+            while (file_exists(fullFileName)==true)
+            do
+                math.randomseed(tostring(os.time()):reverse():sub(1, 6))
+                subdir_name=tostring(math.random(10000))
+                fullFileName = "E:\\program\\recognize_image\\"..subdir_name
+            end
+            Note("fullFileName="..fullFileName)
+            local res=lfs.mkdir(fullFileName)
+            if(res==true) then
+              fullFileName = fullFileName.."\\"..jpg_name
+              local file,err = io.open(fullFileName,"wb")
+              file:write(jpg)
+              file:close()
+            else
+              Note("mkdir err="..err)
+            end
+		else
+			Note("无法获得 fullme 图片。")
+		end --if
+
+	jpg = nil
+
+end -- test_download_image_from_web(web_url)
+
+function file_exists(path)
+  local fileinfo,err = lfs.attributes(path)
+  return fileinfo ~= nil
+end --file_exists(path)
+]]>
+</script> 
+
 
 <!--  Plugin help  -->
 
