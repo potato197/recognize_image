@@ -49,7 +49,16 @@ Load Plugin GetFullmeImage
    group="group"
    sequence="100"
   >
-  <send>asdfasd</send>
+  <send>haha</send>
+  </alias>
+  <alias
+   script="change_image_dir"
+   match="cid"
+   enabled="y"
+   group="group"
+   sequence="100"
+  >
+  <send>hehe</send>
   </alias>
 </aliases>
 
@@ -68,7 +77,12 @@ Load Plugin GetFullmeImage
 <![CDATA[
 
 require 'lfs'
-
+-- -- -- -- -- -- -- -- -- --
+-- -- -- -- -- -- -- -- -- --
+GLOBAL_CURRENT_DIR = nil
+GLOBAL_WORK_PATH = "E:\\program\\recognize_image"
+-- -- -- -- -- -- -- -- -- --
+-- -- -- -- -- -- -- -- -- --
 function get_html_entire_text(from_web_url)
 	
 	local html_entire_text
@@ -129,7 +143,7 @@ function download_jpg(from_jpg_url)
 	local oXMLHTTP
 	local jpg_buffer
 	
-	assert (package.loadlib ("E:\\program\\recognize_image\\luacom.dll","luacom_open")) ()
+	assert (package.loadlib (GLOBAL_WORK_PATH.."\\luacom.dll","luacom_open")) ()
 
 	oXMLHTTP = assert (luacom.CreateObject ("MSXML2.XMLHTTP.3.0"), "cannot open MSXML2.XMLHTTP.3.0")
 
@@ -164,7 +178,7 @@ function down_fullme_code_from_web(web_url)
 		
 		if jpg ~= nil then
             local jpg_name = string.match(jpg_url, "[%w%-_]+%.jpg")
-            local fullFileName = "E:\\program\\recognize_image\\"..jpg_name
+            local fullFileName = GLOBAL_WORK_PATH..jpg_name
             local file = io.open(fullFileName,"wb")
             file:write(jpg)
             file:close()
@@ -182,40 +196,45 @@ function down_fullme_code_from_web(web_url)
 
 end -- down_fullme_code_from_web(web_url)
 
+function change_image_dir()
+    local subdir_name=get_random_str(GLOBAL_WORK_PATH)
+    local fullFileName = GLOBAL_WORK_PATH.."\\"..subdir_name
+    Note("fullFileName="..fullFileName)
+    local res,err=lfs.mkdir(fullFileName)
+    if(res==true) then
+        GLOBAL_CURRENT_DIR=subdir_name
+    else
+      Note("mkdir err="..err)
+    end
+end --change_image_dir
+
 function test_download_image_from_web()
 
 	local jpg = nil
 
 	local jpg_url = "http://img1qn.moko.cc/2017-07-11/638693bb-fcee-4fe6-b551-8b5fcb78817a.jpg" -- get the .jpg file's url from the html text.
 
-		jpg = download_jpg(jpg_url) -- download the .jpg file from the jpg's url, and save it as a variable in memeory.
-		
-		if jpg ~= nil then
-            local jpg_name = string.match(jpg_url, "[%w%-_]+%.jpg")
-            math.randomseed(100)  
-            local subdir_name=tostring(math.random(10000))
-            local fullFileName = "E:\\program\\recognize_image\\"..subdir_name
-            while (file_exists(fullFileName)==true)
-            do
-                math.randomseed(tostring(os.time()):reverse():sub(1, 6))
-                subdir_name=tostring(math.random(10000))
-                fullFileName = "E:\\program\\recognize_image\\"..subdir_name
-            end
-            Note("fullFileName="..fullFileName)
-            local res=lfs.mkdir(fullFileName)
-            if(res==true) then
-              fullFileName = fullFileName.."\\"..jpg_name
-              local file,err = io.open(fullFileName,"wb")
-              file:write(jpg)
-              file:close()
-            else
-              Note("mkdir err="..err)
-            end
-		else
-			Note("无法获得 fullme 图片。")
-		end --if
-
-	jpg = nil
+    jpg = download_jpg(jpg_url) -- download the .jpg file from the jpg's url, and save it as a variable in memeory.
+    
+    if jpg ~= nil and GLOBAL_CURRENT_DIR ~= nil then
+        local curr_dir = GLOBAL_WORK_PATH.."\\"..GLOBAL_CURRENT_DIR
+        local jpg_name,ext = string.match(jpg_url, "/([%w%-_]+)%.(jpg)")
+        local new_name = get_random_file_name(curr_dir,jpg_name,"jpg")
+        local fullFileName = curr_dir.."\\"..new_name.."\."..ext
+        local file,err = io.open(fullFileName,"wb")
+        file:write(jpg)
+        file:close()
+    else
+    	Note("无法保存fullme 图片。")
+    	if jpg ==nil then
+    	    Note("jpg ==nil")
+    	end
+    	if GLOBAL_CURRENT_DIR ==nil then
+    	    Note("GLOBAL_CURRENT_DIR ==nil")
+    	end			
+    end --if
+    
+    jpg = nil
 
 end -- test_download_image_from_web(web_url)
 
@@ -223,6 +242,32 @@ function file_exists(path)
   local fileinfo,err = lfs.attributes(path)
   return fileinfo ~= nil
 end --file_exists(path)
+
+function get_random_str(pre_path)
+    math.randomseed(tostring(os.time()):reverse():sub(1, 6)) 
+    local random_str=tostring(math.random(100000))
+    local fullFileName = pre_path.."\\"..random_str
+    while (file_exists(fullFileName)==true)
+    do
+        math.randomseed(tostring(os.time()):reverse():sub(1, 6))
+        random_str=tostring(math.random(100000))
+        fullFileName = pre_path.."\\"..random_str
+    end
+    return random_str
+end --get_random_str
+
+function get_random_file_name(pre_path,file_name,ext_name)
+    local new_name=file_name
+    local fullFileName = pre_path.."\\"..new_name.."."..ext_name
+    while (file_exists(fullFileName)==true)
+    do
+        math.randomseed(tostring(os.time()):reverse():sub(1, 6))
+        new_name=tostring(math.random(100000))
+        fullFileName = pre_path.."\\"..new_name.."\."..ext_name
+    end
+    return new_name
+end --get_random_file_name
+
 ]]>
 </script> 
 
