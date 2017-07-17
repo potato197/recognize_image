@@ -219,7 +219,7 @@ function test_download_image_from_web()
     if jpg ~= nil and GLOBAL_CURRENT_DIR ~= nil then
         local curr_dir = GLOBAL_WORK_PATH.."\\"..GLOBAL_CURRENT_DIR
         local jpg_name,ext = string.match(jpg_url, "/([%w%-_]+)%.(jpg)")
-        local new_name = get_random_file_name(curr_dir,jpg_name,"jpg")
+        local new_name = get_random_file_name(curr_dir,jpg_name,ext)
         local fullFileName = curr_dir.."\\"..new_name.."\."..ext
         local file,err = io.open(fullFileName,"wb")
         file:write(jpg)
