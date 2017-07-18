@@ -36,12 +36,36 @@ Load Plugin GetFullmeImage
 <!--  Triggers  -->
 
 <triggers>
-
+  <trigger
+   enabled="y"
+   group="fullme"
+   lines_to_match="2"
+   match="^请注意，忽略验证码中的红色文字。.*$\n^(.*)$\n"
+   multi_line="y"
+   name="fullme_code_from_web"
+   regexp="y"
+   send_to="12"
+   sequence="100"
+  >
+  <send>start_down_fullme_code_from_web("%1",true)</send>
+  </trigger>
 </triggers>
 
 <!--  Aliases  -->
-
 <aliases>
+  <alias
+   name="label"
+   match="test (.*)$"
+   enabled="y"
+   echo_alias="y"
+   expand_variables="y"
+   group="group"
+   regexp="y"
+   send_to="12"
+   sequence="100"
+  >
+  <send>start_down_fullme_code_from_web("%1",true)</send>
+  </alias>
   <alias
    script="test_download_image_from_web"
    match="testdi"
@@ -49,7 +73,7 @@ Load Plugin GetFullmeImage
    group="group"
    sequence="100"
   >
-  <send>haha</send>
+  <send></send>
   </alias>
   <alias
    script="change_image_dir"
@@ -58,7 +82,16 @@ Load Plugin GetFullmeImage
    group="group"
    sequence="100"
   >
-  <send>hehe</send>
+  <send></send>
+  </alias>
+  <alias
+   script="stop_download"
+   match="sdl"
+   enabled="y"
+   group="group"
+   sequence="100"
+  >
+  <send></send>
   </alias>
 </aliases>
 
@@ -68,6 +101,12 @@ Load Plugin GetFullmeImage
   <timer enabled="y" minute="8" second="0.00" offset_second="0.00" >
   <send>hpbrief</send>
 
+  </timer>
+  <timer name="timer_download_next" script="download_next" enabled="n" second="10.00" offset_second="0.00"    send_to="12"
+    group="download_images" >
+  </timer>
+  <timer name="timer_stop_download" script="stop_download" enabled="n" minute="2" second="10.00" offset_second="0.00"    send_to="12"
+    group="download_images" >
   </timer>
 </timers>
 
@@ -81,13 +120,15 @@ require 'lfs'
 -- -- -- -- -- -- -- -- -- --
 GLOBAL_CURRENT_DIR = nil
 GLOBAL_WORK_PATH = "E:\\program\\recognize_image"
+GLOBAL_URL = nil
 -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- --
 function get_html_entire_text(from_web_url)
 	
 	local html_entire_text
+	Note("url="..from_web_url)
 	
-	assert (package.loadlib ("luacom.dll","luacom_open")) ()
+	assert (package.loadlib (GLOBAL_WORK_PATH.."\\luacom.dll","luacom_open")) ()
 
 	oXMLHTTP = assert (luacom.CreateObject ("MSXML2.XMLHTTP.3.0"), "cannot open MSXML2.XMLHTTP.3.0")
 
@@ -119,14 +160,15 @@ function get_jpg_url(from_html_text)
 	
 	local html_length = string.len(from_html_text)
 
-	if html_length >= 277 then
+	if html_length >= 200 then
 		
 		jpg_url = string.match(from_html_text, "/b2evo_captcha_tmp.-jpg")
 		jpg_url = "http://pkuxkx.net/antirobot" .. jpg_url
 		
 	else
 		jpg_url = nil
-		close_window()
+		--close_window()
+		Note("from_html_text="..from_html_text..";html_length="..tostring(html_length))
 		Note("\n本插件靠“fullme”触发。“fullme验证码图片”仅在之后的1分钟内输入有效。")
 		Note("本插件不能正确获得Web页面文件。\n")	
 	end -- if
@@ -162,38 +204,61 @@ function download_jpg(from_jpg_url)
 	return jpg_buffer
 end -- download_jpg()
 
-function down_fullme_code_from_web(web_url)
+function start_down_fullme_code_from_web(web_url,change_dir)
+    ret=down_fullme_code_from_web(web_url,change_dir)
+    if(ret==true) then
+        start_download()
+    else
+        stop_download()
+    end
+end
+
+function down_fullme_code_from_web(web_url,change_dir)
 
 	GLOBAL_URL = web_url
-
+	
 	local jpg, png = nil
 
 	local html_entire_text = get_html_entire_text(web_url) -- get the html text as a string from the url.
 
 	local jpg_url = get_jpg_url(html_entire_text) -- get the .jpg file's url from the html text.
 	
+	local ret = false
+	
 	if html_entire_text ~= nil and jpg_url ~= nil then
-	
 		jpg = download_jpg(jpg_url) -- download the .jpg file from the jpg's url, and save it as a variable in memeory.
-		
 		if jpg ~= nil then
-            local jpg_name = string.match(jpg_url, "[%w%-_]+%.jpg")
-            local fullFileName = GLOBAL_WORK_PATH..jpg_name
-            local file = io.open(fullFileName,"wb")
-            file:write(jpg)
-            file:close()
+		    if(change_dir==true) then
+		        change_image_dir()
+		    end
+    		if GLOBAL_CURRENT_DIR ~= nil then
+                local jpg_name,ext = string.match(jpg_url, "([%w_]+)%.(jpg)")
+                local curr_dir = GLOBAL_WORK_PATH.."\\"..GLOBAL_CURRENT_DIR
+                local new_name = get_random_file_name(curr_dir,jpg_name,ext)
+                local fullFileName = curr_dir.."\\"..new_name.."\."..ext
+                local file,err = io.open(fullFileName,"wb")
+                file:write(jpg)
+                file:close()
+                ret = true
+    		else
+            	Note("无法保存fullme 图片。")
+            	Note("GLOBAL_CURRENT_DIR ==nil")
+            	ret = false
+            end --if
 		else
-			Note("无法获得 fullme 图片。")
-		end --if
-	
+		    Note("无法获得fullme 图片。jpg==nil")
+		    ret = false
+		end
 	else
 		
 		Note("本次查询无法获得页面/文件。")
+		ret = false
 		
 	end -- if html_entire_text ~= nil and jpg_url ~= nil
 	
 	jpg, png = nil
 
+    return ret
 end -- down_fullme_code_from_web(web_url)
 
 function change_image_dir()
@@ -267,6 +332,38 @@ function get_random_file_name(pre_path,file_name,ext_name)
     end
     return new_name
 end --get_random_file_name
+
+function download_next()
+    if(GLOBAL_URL~=nil) then
+        local ret=down_fullme_code_from_web(GLOBAL_URL,false)
+        if(ret==false) then
+            stop_download()
+        else
+            Note("Download 1 image successfully.")
+        end
+    else
+        Note("GLOBAL_URL==nil, cannot download next")
+        stop_download()
+    end
+end
+
+function start_download()
+    Note("download started")
+    EnableTimer("timer_download_next",true)
+    ResetTimer("timer_download_next")
+
+    EnableTimer("timer_stop_download",true)
+    ResetTimer("timer_stop_download")
+end
+function stop_download()
+    Note("download stopped")
+    EnableTimer("timer_download_next",false)
+    ResetTimer("timer_download_next")
+
+    EnableTimer("timer_stop_download",false)
+    ResetTimer("timer_stop_download")
+end
+
 
 ]]>
 </script> 
