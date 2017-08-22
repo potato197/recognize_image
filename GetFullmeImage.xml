@@ -262,12 +262,21 @@ function down_fullme_code_from_web(web_url,change_dir)
 end -- down_fullme_code_from_web(web_url)
 
 function change_image_dir()
-    local subdir_name=get_random_str(GLOBAL_WORK_PATH)
-    local fullFileName = GLOBAL_WORK_PATH.."\\"..subdir_name
+    local curr_date_str="source_"..os.date("%Y%m%d")
+    local curr_work_path=GLOBAL_WORK_PATH.."\\"..curr_date_str
+    if(file_exists(curr_work_path)==false) then
+        local res,err=lfs.mkdir(curr_work_path)
+        if(res==false) then
+          Note("change_image_dir mkdir err="..err)
+          return
+        end
+    end
+    local subdir_name=get_random_str(curr_work_path)
+    local fullFileName = curr_work_path.."\\"..subdir_name
     Note("fullFileName="..fullFileName)
     local res,err=lfs.mkdir(fullFileName)
     if(res==true) then
-        GLOBAL_CURRENT_DIR=subdir_name
+        GLOBAL_CURRENT_DIR=curr_date_str.."\\"..subdir_name
     else
       Note("mkdir err="..err)
     end
