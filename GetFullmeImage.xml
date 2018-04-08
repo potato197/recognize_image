@@ -49,6 +49,58 @@ Load Plugin GetFullmeImage
   >
   <send>start_down_fullme_code_from_web("%1",true)</send>
   </trigger>
+
+  <trigger
+   enabled="y"
+   group="fullme"
+   lines_to_match="1"
+   match="^你之前请求的fullme还没有完成。"
+   multi_line="n"
+   name="fullme_unfinished"
+   regexp="y"
+   sequence="100"
+  >
+  <send>fullme 剑法.</send>
+  </trigger>
+
+  <trigger
+   enabled="y"
+   group="fullme"
+   lines_to_match="1"
+   match="好像什么都没有发生，但是又好像有什么事情做错了。再来一次试试！"
+   multi_line="n"
+   name="fullme_unfinished2"
+   regexp="y"
+   sequence="100"
+  >
+  <send>fullme 剑法</send>
+  </trigger>
+  
+  <trigger
+   enabled="y"
+   group="fullme"
+   lines_to_match="1"
+   match="太遗憾了。"
+   multi_line="n"
+   name="fullme_unfinished3"
+   regexp="y"
+   sequence="100"
+  >
+  <send>fullme</send>
+  </trigger>
+  
+  <trigger
+   enabled="y"
+   group="fullme"
+   lines_to_match="1"
+   match="你没有请求 fullme 。"
+   multi_line="n"
+   name="fullme_unfinished4"
+   regexp="y"
+   sequence="100"
+  >
+  <send>fullme</send>
+  </trigger>  
 </triggers>
 
 <!--  Aliases  -->
@@ -128,7 +180,7 @@ function get_html_entire_text(from_web_url)
 	local html_entire_text
 	Note("url="..from_web_url)
 	
-	assert (package.loadlib (GLOBAL_WORK_PATH.."\\luacom.dll","luacom_open")) ()
+	assert (package.loadlib (GLOBAL_WORK_PATH.."\\code".."\\luacom.dll","luacom_open")) ()
 
 	oXMLHTTP = assert (luacom.CreateObject ("MSXML2.XMLHTTP.3.0"), "cannot open MSXML2.XMLHTTP.3.0")
 
@@ -136,10 +188,12 @@ function get_html_entire_text(from_web_url)
 	oXMLHTTP:Open("POST", from_web_url, false)
 	
 	oXMLHTTP:setRequestHeader("User-Agent", "Mozilla/4.0")
-	oXMLHTTP:Send()
-
+	xpcall(oXMLHTTP:Send(),function() Note("Send...\n") end)
+	
 	if oXMLHTTP.readyState == 4 and oXMLHTTP.Status == 200 then
 		html_entire_text = oXMLHTTP.responseText
+	else
+	    Note("Error,oXMLHTTP.Status="..oXMLHTTP.Status)
 	end -- if
 
 	oXMLHTTP = nil
@@ -239,20 +293,21 @@ function down_fullme_code_from_web(web_url,change_dir)
                 local file,err = io.open(fullFileName,"wb")
                 file:write(jpg)
                 file:close()
+                Note("Download and saved 1 image successfully.")
                 ret = true
     		else
             	Note("无法保存fullme 图片。")
             	Note("GLOBAL_CURRENT_DIR ==nil")
-            	ret = false
+            	ret = true
             end --if
 		else
-		    Note("无法获得fullme 图片。jpg==nil")
-		    ret = false
+		    Note("无法获得fullme 图片。jpg==nil，")
+		    ret = true
 		end
 	else
 		
 		Note("本次查询无法获得页面/文件。")
-		ret = false
+		ret = true
 		
 	end -- if html_entire_text ~= nil and jpg_url ~= nil
 	
@@ -348,7 +403,7 @@ function download_next()
         if(ret==false) then
             stop_download()
         else
-            Note("Download 1 image successfully.")
+            Note("继续下一次。")
         end
     else
         Note("GLOBAL_URL==nil, cannot download next")
@@ -371,7 +426,11 @@ function stop_download()
 
     EnableTimer("timer_stop_download",false)
     ResetTimer("timer_stop_download")
+--    Note("Reload plugin")
+--    world.DoAfterSpecial(2, 'Note("Reload plugin result:"..ReloadPlugin("GetFullmeImage"))', sendto.script)
+--    Note("Reload plugin end")
 end
+
 
 
 ]]>
